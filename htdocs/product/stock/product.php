@@ -195,7 +195,7 @@ if ($action == 'setdesiredstock' && !empty($user->rights->produit->creer))
 // Correct stock
 if ($action == "correct_stock" && !$cancel)
 {
-	if (!(GETPOST("id_entrepot") > 0))
+	if (!(GETPOST("id_entrepot", 'int') > 0))
 	{
 		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Warehouse")), null, 'errors');
 		$error++;
@@ -1006,7 +1006,7 @@ if (!$variants) {
 				print '<td class="right">'.$line['seuil_stock_alerte'].'</td>';
 				print '<td class="right">'.$line['desiredstock'].'</td>';
 				if (!empty($user->rights->produit->creer)) {
-					print '<td class="right"><a href="?id='.$id.'&fk_productstockwarehouse='.$line['id'].'&action=delete_productstockwarehouse">'.img_delete().'</a></td>';
+					print '<td class="right"><a href="'.$_SERVER['PHP_SELF'].'?id='.$id.'&fk_productstockwarehouse='.$line['id'].'&action=delete_productstockwarehouse&token='.newToken().'">'.img_delete().'</a></td>';
 				}
 				print '</tr>';
 			}

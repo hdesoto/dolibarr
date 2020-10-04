@@ -179,7 +179,7 @@ if ($id > 0 || $ref)
 
 	}*/
 
-	$linkback = '<a href="'.DOL_URL_ROOT.'/compta/prelevement/bons.php'.($object->type != 'bank-transfer' ? '' : '?type=bank-transfer').'">'.$langs->trans("BackToList").'</a>';
+	$linkback = '<a href="'.DOL_URL_ROOT.'/compta/prelevement/orders_list.php?restore_lastsearch_values=1'.($object->type != 'bank-transfer' ? '' : '&type=bank-transfer').'">'.$langs->trans("BackToList").'</a>';
 
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref');
 
@@ -317,15 +317,15 @@ if ($id > 0 || $ref)
 
 		if (empty($object->date_trans) && $user->rights->prelevement->bons->send)
 		{
-			print "<a class=\"butAction\" href=\"card.php?action=settransmitted&id=".$object->id."\">".$langs->trans("SetToStatusSent")."</a>";
+			print "<a class=\"butAction\" href=\"card.php?action=settransmitted&token='.newToken().'&id=".$object->id."\">".$langs->trans("SetToStatusSent")."</a>";
 		}
 
 		if (!empty($object->date_trans) && $object->date_credit == 0)
 		{
-			print "<a class=\"butAction\" href=\"card.php?action=setcredited&id=".$object->id."\">".$langs->trans("ClassCredited")."</a>";
+			print "<a class=\"butAction\" href=\"card.php?action=setcredited&token='.newToken().'&id=".$object->id."\">".$langs->trans("ClassCredited")."</a>";
 		}
 
-		print "<a class=\"butActionDelete\" href=\"card.php?action=delete&id=".$object->id."\">".$langs->trans("Delete")."</a>";
+		print "<a class=\"butActionDelete\" href=\"card.php?action=delete&token='.newToken().'&id=".$object->id."\">".$langs->trans("Delete")."</a>";
 
 		print "</div>";
 	}

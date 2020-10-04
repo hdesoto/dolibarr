@@ -539,6 +539,7 @@ class Export
 		if (empty($this->array_export_fields) || !is_array($this->array_export_fields))
 		{
 			$this->error = "ErrorBadParameter";
+			dol_syslog($this->error, LOG_ERR);
 			return -1;
 		}
 
@@ -735,7 +736,7 @@ class Export
     {
 		$sql = 'SELECT em.rowid, em.label, em.type, em.field, em.filter';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'export_model as em';
-		$sql .= ' WHERE em.rowid = '.$id;
+		$sql .= ' WHERE em.rowid = '.((int) $id);
 
 		dol_syslog("Export::fetch", LOG_DEBUG);
 		$result = $this->db->query($sql);
@@ -844,7 +845,7 @@ class Export
 				}
 				// suppression de l'export
 				print '<td class="right">';
-				print '<a href="'.$_SERVER["PHP_SELF"].'?action=deleteprof&id='.$obj->rowid.'">';
+				print '<a href="'.$_SERVER["PHP_SELF"].'?action=deleteprof&token='.newToken().'&id='.$obj->rowid.'">';
 				print img_delete();
 				print '</a>';
 				print "</tr>";

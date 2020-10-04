@@ -233,29 +233,30 @@ if ($action == 'valid' && $user->rights->facture->creer)
 	//	$conf->global->FACTURE_ADDON = $sav_FACTURE_ADDON;
 	//}
 
-	$remaintopay = $invoice->getRemainToPay();
-
 	// Add the payment
-	if (!$error && $res >= 0 && $remaintopay > 0) {
-		$payment = new Paiement($db);
-		$payment->datepaye = $now;
-		$payment->fk_account = $bankaccount;
-		$payment->amounts[$invoice->id] = $amountofpayment;
-		if ($pay == 'cash') $payment->pos_change = price2num(GETPOST('excess', 'alpha'));
+	if (!$error && $res >= 0) {
+		$remaintopay = $invoice->getRemainToPay();
+		if ($remaintopay > 0) {
+			$payment = new Paiement($db);
+			$payment->datepaye = $now;
+			$payment->fk_account = $bankaccount;
+			$payment->amounts[$invoice->id] = $amountofpayment;
+			if ($pay == 'cash') $payment->pos_change = price2num(GETPOST('excess', 'alpha'));
 
-		// If user has not used change control, add total invoice payment
-		// Or if user has used change control and the amount of payment is higher than remain to pay, add the remain to pay
-		if ($amountofpayment == 0 || $amountofpayment > $remaintopay) $payment->amounts[$invoice->id] = $remaintopay;
+			// If user has not used change control, add total invoice payment
+			// Or if user has used change control and the amount of payment is higher than remain to pay, add the remain to pay
+			if ($amountofpayment == 0 || $amountofpayment > $remaintopay) $payment->amounts[$invoice->id] = $remaintopay;
 
-		$payment->paiementid = $paiementid;
-		$payment->num_payment = $invoice->ref;
+			$payment->paiementid = $paiementid;
+			$payment->num_payment = $invoice->ref;
 
-		if ($pay != "delayed") {
-			$payment->create($user);
-			$payment->addPaymentToBank($user, 'payment', '(CustomerInvoicePayment)', $bankaccount, '', '');
+			if ($pay != "delayed") {
+				$payment->create($user);
+				$payment->addPaymentToBank($user, 'payment', '(CustomerInvoicePayment)', $bankaccount, '', '');
+				$remaintopay = $invoice->getRemainToPay();    // Recalculate remain to pay after the payment is recorded
+			}
 		}
 
-		$remaintopay = $invoice->getRemainToPay(); // Recalculate remain to pay after the payment is recorded
 		if ($remaintopay == 0) {
 			dol_syslog("Invoice is paid, so we set it to status Paid");
 			$result = $invoice->set_paid($user);
@@ -1065,8 +1066,40 @@ if ($placeid > 0)
 
 				$htmlforlines .= '</td>';
 				$htmlforlines .= '<td class="right">'.vatrate($line->remise_percent, true).'</td>';
-				$htmlforlines .= '<td class="right">'.$line->qty.'</td>';
-				$htmlforlines .= '<td class="right classfortooltip" title="'.$moreinfo.'">'.price($line->total_ttc).'</td>';
+				$htmlforlines .= '<td class="right">';
+				if (!empty($conf->stock->enabled))
+				{
+					$constantforkey = 'CASHDESK_ID_WAREHOUSE'.$_SESSION["takeposterminal"];
+					$sql = "SELECT e.rowid, e.ref, e.lieu, e.fk_parent, e.statut, ps.reel, ps.rowid as product_stock_id, p.pmp";
+					$sql .= " FROM ".MAIN_DB_PREFIX."entrepot as e,";
+					$sql .= " ".MAIN_DB_PREFIX."product_stock as ps";
+					$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product as p ON p.rowid = ps.fk_product";
+					$sql .= " WHERE ps.reel != 0";
+					$sql .= " AND ps.fk_entrepot = ".$conf->global->$constantforkey;
+					$sql .= " AND e.entity IN (".getEntity('stock').")";
+					$sql .= " AND ps.fk_product = ".$line->fk_product;
+					$resql = $db->query($sql);
+					if ($resql) {
+						$obj = $db->fetch_object($resql);
+						$stock_real = price2num($obj->reel, 'MS');
+						$htmlforlines .= $line->qty;
+						if ($line->qty && $line->qty > $stock_real) $htmlforlines .= '<span style="color: var(--amountremaintopaycolor)">';
+						$htmlforlines .= ' <span class="posstocktoolow">('.$langs->trans("Stock").' '.$stock_real.')</span>';
+						if ($line->qty && $line->qty > $stock_real) $htmlforlines .= "</span>";
+					}
+				}
+				else $htmlforlines .= $line->qty;
+				$htmlforlines .= '</td>';
+				$htmlforlines .= '<td class="right classfortooltip" title="'.$moreinfo.'">';
+				$htmlforlines .= price($line->total_ttc);
+				if (!empty($conf->multicurrency->enabled) && $_SESSION["takeposcustomercurrency"]!="" && $conf->currency!=$_SESSION["takeposcustomercurrency"]) {
+					//Only show customer currency if multicurrency module is enabled, if currency selected and if this currency selected is not the same as main currency
+					include_once DOL_DOCUMENT_ROOT.'/multicurrency/class/multicurrency.class.php';
+					$multicurrency = new MultiCurrency($db);
+					$multicurrency->fetch(0, $_SESSION["takeposcustomercurrency"]);
+					$htmlforlines .= ' ('.price($line->total_ttc*$multicurrency->rate->rate).' '.$_SESSION["takeposcustomercurrency"].')';
+				}
+				$htmlforlines .= '</td>';
 			}
 			$htmlforlines .= '</tr>'."\n";
 			$htmlforlines .= $htmlsupplements[$line->id];

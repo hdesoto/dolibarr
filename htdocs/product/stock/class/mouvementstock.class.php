@@ -211,6 +211,7 @@ class MouvementStock extends CommonObject
 		{
 			if (empty($batch))
 			{
+				$langs->load("errors");
 				$this->errors[] = $langs->transnoentitiesnoconv("ErrorTryToMakeMoveOnProductRequiringBatchData", $product->ref);
 				dol_syslog("Try to make a movement of a product with status_batch on without any batch data");
 
@@ -1000,6 +1001,10 @@ class MouvementStock extends CommonObject
 			case 'mo':
 				require_once DOL_DOCUMENT_ROOT.'/mrp/class/mo.class.php';
 				$origin = new Mo($this->db);
+				break;
+			case 'user':
+				require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+				$origin = new User($this->db);
 				break;
 
 			default:

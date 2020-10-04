@@ -44,6 +44,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/hookmanager.class.php';
 $place = (GETPOST('place', 'aZ09') ? GETPOST('place', 'aZ09') : 0); // $place is id of table for Bar or Restaurant or multiple sales
 $action = GETPOST('action', 'aZ09');
 $setterminal = GETPOST('setterminal', 'int');
+$setcurrency = GETPOST('setcurrency', 'aZ09');
 
 if ($_SESSION["takeposterminal"] == "")
 {
@@ -55,6 +56,11 @@ if ($setterminal > 0)
 {
 	$_SESSION["takeposterminal"] = $setterminal;
 	setcookie("takeposterminal", $setterminal, (time() + (86400 * 354)), '/', null, false, true); // Permanent takeposterminal var in a cookie
+}
+
+if ($setcurrency!="")
+{
+	$_SESSION["takeposcustomercurrency"] = $setcurrency;
 }
 
 $_SESSION["urlfrom"] = '/takepos/index.php';
@@ -424,7 +430,7 @@ function ClickProduct(position) {
 function ChangeThirdparty(idcustomer) {
 	 console.log("ChangeThirdparty");
 		// Call page list.php to change customer
-		$("#poslines").load("../societe/list.php?action=change&contextpage=poslist&idcustomer="+idcustomer+"&place="+place+"", function() {
+		$("#poslines").load("../societe/list.php?action=change&type=t&contextpage=poslist&idcustomer="+idcustomer+"&place="+place+"", function() {
 		});
 
 	ClearSearch();
@@ -432,7 +438,7 @@ function ChangeThirdparty(idcustomer) {
 
 function deleteline() {
 	console.log("Delete line");
-	$("#poslines").load("invoice.php?action=deleteline&place="+place+"&idline="+selectedline, function() {
+	$("#poslines").load("invoice.php?action=deleteline&token=<?php echo newToken(); ?>&place="+place+"&idline="+selectedline, function() {
 		//$('#poslines').scrollTop($('#poslines')[0].scrollHeight);
 	});
 	ClearSearch();
@@ -440,7 +446,7 @@ function deleteline() {
 
 function Customer() {
 	console.log("Open box to select the thirdparty place="+place);
-	$.colorbox({href:"../societe/list.php?contextpage=poslist&nomassaction=1&place="+place, width:"90%", height:"80%", transition:"none", iframe:"true", title:"<?php echo $langs->trans("Customer"); ?>"});
+	$.colorbox({href:"../societe/list.php?type=t&contextpage=poslist&nomassaction=1&place="+place, width:"90%", height:"80%", transition:"none", iframe:"true", title:"<?php echo $langs->trans("Customer"); ?>"});
 }
 
 function History()
@@ -499,7 +505,7 @@ function New() {
 
 		if (r == true) {
 			// Reload section with invoice lines
-			$("#poslines").load("invoice.php?action=delete&place=" + place, function () {
+			$("#poslines").load("invoice.php?action=delete&token=<?php echo newToken(); ?>&place=" + place, function () {
 				//$('#poslines').scrollTop($('#poslines')[0].scrollHeight);
 			});
 			ClearSearch();
@@ -725,30 +731,11 @@ function CashReport(rowid)
     $.colorbox({href:"../compta/cashcontrol/report.php?id="+rowid+"&contextpage=takepos", width:"60%", height:"90%", transition:"none", iframe:"true", title:"<?php echo $langs->trans("CashReport"); ?>"});
 }
 
-// Popup to select the terminal to use
-function TerminalsDialog()
+// TakePOS Popup
+function ModalBox(ModalID)
 {
-    jQuery("#dialog-info").dialog({
-	    resizable: false,
-	    height: <?php echo 180 + round($conf->global->TAKEPOS_NUM_TERMINALS / 3 * 20); ?>,
-	    width: <?php echo ($conf->dol_optimize_smallscreen ? 316 : 400); ?>,
-	    modal: true,
-	    buttons: {
-			'<?php echo dol_escape_js($langs->trans("Terminal")) ?> 1': function() {
-				location.href='index.php?setterminal=1';
-			}
-			<?php
-			for ($i = 2; $i <= $conf->global->TAKEPOS_NUM_TERMINALS; $i++)
-			{
-				print ",
-				'".dol_escape_js($langs->trans("Terminal"))." ".$i."': function() {
-					location.href='index.php?setterminal=".$i."';
-				}
-				";
-			}
-			?>
-	    }
-	});
+    var modal = document.getElementById(ModalID);
+	modal.style.display = "block";
 }
 
 function DirectPayment(){
@@ -782,7 +769,7 @@ $( document ).ready(function() {
 	//IF NO TERMINAL SELECTED
 	if ($_SESSION["takeposterminal"] == "")
 	{
-		print "TerminalsDialog();";
+		print "ModalBox('ModalTerminal');";
 	}
 	if ($conf->global->TAKEPOS_CONTROL_CASH_OPENING)
 	{
@@ -802,7 +789,6 @@ $( document ).ready(function() {
 
 <body class="bodytakepos" style="overflow: hidden;">
 <?php
-print '<div class="hidden dialog-info-takepos-terminal" id="dialog-info" title="TakePOS">'.$langs->trans('TerminalSelect').'</div>';
 $keyCodeForEnter = $conf->global->{'CASHDESK_READER_KEYCODE_FOR_ENTER'.$_SESSION['takeposterminal']} > 0 ? $conf->global->{'CASHDESK_READER_KEYCODE_FOR_ENTER'.$_SESSION['takeposterminal']} : '';
 ?>
 <div class="container">
@@ -814,7 +800,7 @@ if (empty($conf->global->TAKEPOS_HIDE_HEAD_BAR)) {
 		<div class="topnav">
 			<div class="topnav-left">
 			<div class="inline-block valignmiddle">
-			<a class="topnav-terminalhour" onclick="TerminalsDialog();">
+			<a class="topnav-terminalhour" onclick="ModalBox('ModalTerminal');">
 			<span class="fa fa-cash-register"></span>
 			<span class="hideonsmartphone">
 			<?php echo $langs->trans("Terminal"); ?>
@@ -824,7 +810,13 @@ if (empty($conf->global->TAKEPOS_HIDE_HEAD_BAR)) {
 			else echo $_SESSION["takeposterminal"];
 			echo '<span class="hideonsmartphone"> - '.dol_print_date(dol_now(), "day").'</span>';
 			?>
-			</a></div>
+			</a>
+			<?php
+			if (!empty($conf->multicurrency->enabled)){
+				print '<a class="valignmiddle tdoverflowmax100 minwidth75" id="multicurrency" onclick="ModalBox(\'ModalCurrency\');" title=""><span class="fas fa-coins paddingrightonly"></span>'.$langs->trans("Currency").'</a>';
+			}
+			?>
+			</div>
 			<!-- section for customer and open sales -->
 			<div class="inline-block valignmiddle" id="customerandsales">
 			</div>
@@ -836,7 +828,7 @@ if (empty($conf->global->TAKEPOS_HIDE_HEAD_BAR)) {
 				<div class="login_block_other">
 				<input type="text" id="search" name="search" onkeyup="Search2(<?php echo $keyCodeForEnter; ?>);"  placeholder="<?php echo $langs->trans("Search"); ?>" autofocus>
 				<a onclick="ClearSearch();"><span class="fa fa-backspace"></span></a>
-				<a onclick="window.location.href='<?php echo DOL_URL_ROOT; ?>';"><span class="fas fa-home"></span></a>
+				<a onclick="window.location.href='<?php echo DOL_URL_ROOT.'/'; ?>';"><span class="fas fa-home"></span></a>
 				<?php if (empty($conf->dol_use_jmobile)) { ?>
 				<a onclick="FullScreen();"><span class="fa fa-expand-arrows-alt"></span></a>
 				<?php } ?>
@@ -852,6 +844,48 @@ if (empty($conf->global->TAKEPOS_HIDE_HEAD_BAR)) {
 	<?php
 }
 ?>
+
+<!-- Modal terminal box -->
+<div id="ModalTerminal" class="modal">
+	<div class="modal-content">
+		<div class="modal-header">
+		<span class="close" href="#" onclick="document.getElementById('ModalTerminal').style.display = 'none';">&times;</span>
+		<h3><?php print $langs->trans("TerminalSelect");?></h3>
+	</div>
+	<div class="modal-body">
+		<button type="button" class="block" onclick="location.href='index.php?setterminal=1'"><?php print $langs->trans("Terminal");?> 1</button>
+		<?php
+		for ($i = 2; $i <= $conf->global->TAKEPOS_NUM_TERMINALS; $i++)
+		{
+			print '<button type="button" class="block" onclick="location.href=\'index.php?setterminal='.$i.'\'">'.$langs->trans("Terminal").' '.$i.'</button>';
+		}
+		?>
+	</div>
+</div>
+</div>
+
+<!-- Modal multicurrency box -->
+<div id="ModalCurrency" class="modal">
+	<div class="modal-content">
+		<div class="modal-header">
+			<span class="close" href="#" onclick="document.getElementById('ModalCurrency').style.display = 'none';">&times;</span>
+			<h3><?php print $langs->trans("SetMultiCurrencyCode");?></h3>
+		</div>
+		<div class="modal-body">
+			<?php
+			$sql = 'SELECT code FROM '.MAIN_DB_PREFIX.'multicurrency';
+			$sql .= " WHERE entity IN ('".getEntity('mutlicurrency')."')";
+			$resql = $db->query($sql);
+			if ($resql)
+			{
+				while ($obj = $db->fetch_object($resql))
+				print '<button type="button" class="block" onclick="location.href=\'index.php?setcurrency='.$obj->code.'\'">'.$obj->code.'</button>';
+			}
+
+			?>
+		</div>
+	</div>
+</div>
 
 	<div class="row1<?php if (empty($conf->global->TAKEPOS_HIDE_HEAD_BAR)) print 'withhead'; ?>">
 
